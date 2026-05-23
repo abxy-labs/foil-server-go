@@ -132,6 +132,7 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	apiKeyList := loadFixture[resourceListEnvelope[APIKey]](t, "api/organizations/api-key-list.json")
 	apiKeyUpdate := loadFixture[resourceEnvelope[APIKey]](t, "api/organizations/api-key-update.json")
 	apiKeyRotate := loadFixture[resourceEnvelope[IssuedAPIKey]](t, "api/organizations/api-key-rotate.json")
+	var clientUserPatchBodies []map[string]any
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		switch {
@@ -163,6 +164,13 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 				Meta:       meta{RequestID: "req_0123456789abcdef0123456789abcdef"},
 			}
 			writeJSON(t, writer, http.StatusOK, secondPage)
+		case request.URL.Path == "/v1/sessions/sid_0123456789abcdefghjkmnpqrs" && request.Method == http.MethodPatch:
+			var body map[string]any
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Fatalf("decode client user patch: %v", err)
+			}
+			clientUserPatchBodies = append(clientUserPatchBodies, body)
+			writeJSON(t, writer, http.StatusOK, sessionDetail)
 		case request.URL.Path == "/v1/sessions/sid_0123456789abcdefghjkmnpqrs":
 			writeJSON(t, writer, http.StatusOK, sessionDetail)
 		case request.URL.Path == "/v1/fingerprints":
@@ -217,6 +225,18 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	session, err := client.Sessions.Get(context.Background(), "sid_0123456789abcdefghjkmnpqrs")
 	if err != nil || session.ID != "sid_0123456789abcdefghjkmnpqrs" {
 		t.Fatalf("unexpected session detail %#v err=%v", session, err)
+	}
+	if session.ClientUserID == nil || *session.ClientUserID != "user_123" {
+		t.Fatalf("unexpected client user id %#v", session.ClientUserID)
+	}
+	if _, err := client.Sessions.AttachClientUser(context.Background(), "sid_0123456789abcdefghjkmnpqrs", "user_123"); err != nil {
+		t.Fatalf("attach client user: %v", err)
+	}
+	if _, err := client.Sessions.ClearClientUser(context.Background(), "sid_0123456789abcdefghjkmnpqrs"); err != nil {
+		t.Fatalf("clear client user: %v", err)
+	}
+	if len(clientUserPatchBodies) != 2 || clientUserPatchBodies[0]["client_user_id"] != "user_123" || clientUserPatchBodies[1]["client_user_id"] != nil {
+		t.Fatalf("unexpected client user patch bodies %#v", clientUserPatchBodies)
 	}
 	if session.NativeRuntimeIntegrity != nil || session.NativeApp != nil || session.NativeCarrier != nil || session.NativeMotionPrint != nil || session.DeviceIdentity != nil || session.InstallID != nil {
 		t.Fatalf("expected null native session fields, got %#v", session)

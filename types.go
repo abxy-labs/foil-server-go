@@ -310,6 +310,7 @@ type SessionSummary struct {
 	Object             string                  `json:"object"`
 	ID                 string                  `json:"id"`
 	CreatedAt          *string                 `json:"created_at,omitempty"`
+	ClientUserID        *string                 `json:"client_user_id,omitempty"`
 	LatestDecision     Decision                `json:"latest_decision"`
 	VisitorFingerprint *VisitorFingerprintLink `json:"visitor_fingerprint,omitempty"`
 }
@@ -423,6 +424,7 @@ type SessionDetail struct {
 	Object                 string                           `json:"object"`
 	ID                     string                           `json:"id"`
 	CreatedAt              *string                          `json:"created_at,omitempty"`
+	ClientUserID            *string                          `json:"client_user_id,omitempty"`
 	Decision               SessionDecision                  `json:"decision"`
 	Highlights             []SessionHighlight               `json:"highlights"`
 	Attribution            *SessionAttribution              `json:"attribution,omitempty"`
