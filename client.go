@@ -277,6 +277,42 @@ func (s *SessionsService) Get(ctx context.Context, sessionID string) (SessionDet
 	return envelope.Data, nil
 }
 
+type updateSessionRequest struct {
+	ClientUserID *string `json:"client_user_id"`
+}
+
+func (s *SessionsService) AttachClientUser(ctx context.Context, sessionID string, clientUserID string) (SessionDetail, error) {
+	var envelope resourceEnvelope[SessionDetail]
+	err := s.client.doJSON(
+		ctx,
+		http.MethodPatch,
+		"/v1/sessions/"+url.PathEscape(sessionID),
+		nil,
+		updateSessionRequest{ClientUserID: &clientUserID},
+		&envelope,
+	)
+	if err != nil {
+		return SessionDetail{}, err
+	}
+	return envelope.Data, nil
+}
+
+func (s *SessionsService) ClearClientUser(ctx context.Context, sessionID string) (SessionDetail, error) {
+	var envelope resourceEnvelope[SessionDetail]
+	err := s.client.doJSON(
+		ctx,
+		http.MethodPatch,
+		"/v1/sessions/"+url.PathEscape(sessionID),
+		nil,
+		updateSessionRequest{ClientUserID: nil},
+		&envelope,
+	)
+	if err != nil {
+		return SessionDetail{}, err
+	}
+	return envelope.Data, nil
+}
+
 func (s *SessionsService) Iter(ctx context.Context, params SessionListParams, yield func(SessionSummary) error) error {
 	cursor := params.Cursor
 	for {

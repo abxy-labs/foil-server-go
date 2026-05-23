@@ -64,6 +64,13 @@ func main() {
     log.Fatal(err)
   }
 
+  if _, err := client.Sessions.AttachClientUser(context.Background(), session.ID, "user_123"); err != nil {
+    log.Fatal(err)
+  }
+  if _, err := client.Sessions.ClearClientUser(context.Background(), session.ID); err != nil {
+    log.Fatal(err)
+  }
+
   log.Println(page.Items[0].ID, session.Decision.AutomationStatus, session.Highlights[0].Summary)
 }
 ```

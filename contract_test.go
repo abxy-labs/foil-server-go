@@ -185,6 +185,14 @@ func TestCriticalSchemaConstraintsAreTightened(t *testing.T) {
 	if nestedMap(t, sessionSummaryID, "SessionSummary.properties.id")["$ref"] != "#/components/schemas/SessionId" {
 		t.Fatalf("SessionSummary.id should reference SessionId")
 	}
+	sessionSummaryClientUserID := nestedMap(t, nestedMap(t, schemas["SessionSummary"], "SessionSummary")["properties"], "SessionSummary.properties")["client_user_id"]
+	if !reflect.DeepEqual(stripExamples(sessionSummaryClientUserID), map[string]any{
+		"type":        []any{"string", "null"},
+		"maxLength":   float64(256),
+		"description": "Customer-supplied identifier for the end user associated with this Foil session. Set with PATCH /v1/sessions/{sessionId}.",
+	}) {
+		t.Fatalf("SessionSummary.client_user_id has unexpected schema: %#v", sessionSummaryClientUserID)
+	}
 	teamStatus := nestedMap(t, nestedMap(t, schemas["Organization"], "Organization")["properties"], "Organization.properties")["status"]
 	if nestedMap(t, teamStatus, "Organization.properties.status")["$ref"] != "#/components/schemas/OrganizationStatus" {
 		t.Fatalf("Organization.status should reference OrganizationStatus")
@@ -213,7 +221,7 @@ func TestCriticalSchemaConstraintsAreTightened(t *testing.T) {
 	for _, item := range sessionDetailRequired {
 		requiredSet[item] = true
 	}
-	for _, field := range []string{"decision", "highlights", "attribution", "web_bot_auth", "network", "runtime_integrity", "visitor_fingerprint", "connection_fingerprint", "previous_decisions", "request", "browser", "device", "analysis_coverage", "signals_fired", "client_telemetry"} {
+	for _, field := range []string{"client_user_id", "decision", "highlights", "attribution", "web_bot_auth", "network", "runtime_integrity", "visitor_fingerprint", "connection_fingerprint", "previous_decisions", "request", "browser", "device", "analysis_coverage", "signals_fired", "client_telemetry"} {
 		if !requiredSet[field] {
 			t.Fatalf("SessionDetail.required should include %s", field)
 		}
@@ -285,6 +293,7 @@ func TestPublicOperationsHaveStableIDsAndTags(t *testing.T) {
 	}
 
 	assertOperation("/v1/sessions", "get", "listSessions", "Sessions")
+	assertOperation("/v1/sessions/{sessionId}", "patch", "updateSession", "Sessions")
 	assertOperation("/v1/fingerprints/{visitorId}", "get", "getVisitorFingerprint", "Visitor fingerprints")
 	assertOperation("/v1/organizations/{organizationId}", "patch", "updateOrganization", "Organizations")
 	assertOperation("/v1/organizations/{organizationId}/api-keys/{keyId}", "patch", "updateOrganizationApiKey", "API Keys")
