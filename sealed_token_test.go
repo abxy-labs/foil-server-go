@@ -31,6 +31,25 @@ func TestVerifyFoilTokenFixture(t *testing.T) {
 	}
 }
 
+func TestVerifyFoilTokenMultiRecipientFixture(t *testing.T) {
+	fixture := loadFixture[struct {
+		Token        string         `json:"token"`
+		SecretKeys   []string       `json:"secretKeys"`
+		SecretHashes []string       `json:"secretHashes"`
+		Payload      map[string]any `json:"payload"`
+	}](t, "sealed-token/vector.v2.json")
+
+	for _, secret := range append(fixture.SecretKeys, fixture.SecretHashes...) {
+		verified, err := VerifyFoilToken(fixture.Token, secret)
+		if err != nil {
+			t.Fatalf("verify multi-recipient token: %v", err)
+		}
+		if verified.SessionID != fixture.Payload["session_id"] {
+			t.Fatalf("unexpected session id %#v", verified.SessionID)
+		}
+	}
+}
+
 func TestSafeVerifyFoilTokenInvalidFixture(t *testing.T) {
 	fixture := loadFixture[struct {
 		Token string `json:"token"`
