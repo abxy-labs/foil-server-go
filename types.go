@@ -310,7 +310,7 @@ type SessionSummary struct {
 	Object             string                  `json:"object"`
 	ID                 string                  `json:"id"`
 	CreatedAt          *string                 `json:"created_at,omitempty"`
-	ClientUserID        *string                 `json:"client_user_id,omitempty"`
+	ClientUserID       *string                 `json:"client_user_id,omitempty"`
 	LatestDecision     Decision                `json:"latest_decision"`
 	VisitorFingerprint *VisitorFingerprintLink `json:"visitor_fingerprint,omitempty"`
 }
@@ -318,55 +318,121 @@ type SessionSummary struct {
 type SessionNetworkLocation struct {
 	City             *string  `json:"city,omitempty"`
 	Region           *string  `json:"region,omitempty"`
+	RegionCode       *string  `json:"region_code,omitempty"`
 	Country          *string  `json:"country,omitempty"`
 	CountryCode      *string  `json:"country_code,omitempty"`
+	Continent        *string  `json:"continent,omitempty"`
+	ContinentCode    *string  `json:"continent_code,omitempty"`
 	Latitude         *float64 `json:"latitude,omitempty"`
 	Longitude        *float64 `json:"longitude,omitempty"`
 	Timezone         *string  `json:"timezone,omitempty"`
 	PostalCode       *string  `json:"postal_code,omitempty"`
-	AccuracyRadiusKm *float64 `json:"accuracy_radius_km,omitempty"`
+	DMACode          *string  `json:"dma_code,omitempty"`
+	GeonameID        *string  `json:"geoname_id,omitempty"`
+	AccuracyRadiusKm *int     `json:"accuracy_radius_km,omitempty"`
+	LastChanged      *string  `json:"last_changed,omitempty"`
 }
 
-type SessionNetworkRouting struct {
-	ASN          *string `json:"asn,omitempty"`
-	Organization *string `json:"organization,omitempty"`
+type SessionNetworkAutonomousSystem struct {
+	Number      *int    `json:"number,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	Domain      *string `json:"domain,omitempty"`
+	Type        *string `json:"type,omitempty"`
+	LastChanged *string `json:"last_changed,omitempty"`
 }
 
-type SessionNetworkAnonymity struct {
-	VPN              bool    `json:"vpn"`
-	Proxy            bool    `json:"proxy"`
-	Tor              bool    `json:"tor"`
-	Relay            bool    `json:"relay"`
-	Hosting          bool    `json:"hosting"`
-	ResidentialProxy bool    `json:"residential_proxy"`
-	CallbackProxy    bool    `json:"callback_proxy"`
-	Provider         *string `json:"provider,omitempty"`
+type SessionNetworkCarrier struct {
+	Name *string `json:"name,omitempty"`
+	MCC  *string `json:"mcc,omitempty"`
+	MNC  *string `json:"mnc,omitempty"`
 }
 
-type SessionNetworkReputation struct {
-	Listed            bool     `json:"listed"`
-	Categories        []string `json:"categories"`
-	SuspiciousNetwork bool     `json:"suspicious_network"`
+type SessionNetworkTraits struct {
+	Anycast   *bool `json:"anycast,omitempty"`
+	Hosting   *bool `json:"hosting,omitempty"`
+	Mobile    *bool `json:"mobile,omitempty"`
+	Satellite *bool `json:"satellite,omitempty"`
 }
 
-type SessionNetworkEvidence struct {
-	RiskSignals  []string `json:"risk_signals"`
-	OperatorTags []string `json:"operator_tags"`
-	ClientTypes  []string `json:"client_types"`
-	ClientCount  *int     `json:"client_count,omitempty"`
+type SessionNetworkPrivacyService struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+type SessionNetworkPrivacy struct {
+	Status            string                        `json:"status"`
+	Classifications   []string                      `json:"classifications"`
+	Service           *SessionNetworkPrivacyService `json:"service,omitempty"`
+	LocationObscured  bool                          `json:"location_obscured"`
+	LocationPrecision string                        `json:"location_precision"`
+}
+
+type SessionNetworkProviderEvidence struct {
+	Provider    string   `json:"provider"`
+	Type        string   `json:"type"`
+	FirstSeenAt string   `json:"first_seen_at"`
+	LastSeenAt  string   `json:"last_seen_at"`
+	DaysSeen    int      `json:"days_seen"`
+	CountryCode *string  `json:"country_code,omitempty"`
+	ASN         *int     `json:"asn,omitempty"`
+	Sources     []string `json:"sources"`
+}
+
+type SessionNetworkProxyActivity struct {
+	CurrentStatus        string                           `json:"current_status"`
+	HistoryStatus        string                           `json:"history_status"`
+	Activity             string                           `json:"activity"`
+	Confidence           *string                          `json:"confidence,omitempty"`
+	MostRecentLastSeenAt *string                          `json:"most_recent_last_seen_at,omitempty"`
+	Providers            []SessionNetworkProviderEvidence `json:"providers"`
+}
+
+type SessionNetworkMatchedRange struct {
+	RangeStart string `json:"range_start"`
+	RangeEnd   string `json:"range_end"`
+}
+
+type SessionNetworkAnonymizer struct {
+	Status        string                           `json:"status"`
+	MatchedRanges []SessionNetworkMatchedRange     `json:"matched_ranges"`
+	Providers     []SessionNetworkProviderEvidence `json:"providers"`
+}
+
+type SessionNetworkDataset struct {
+	Generation    *string `json:"generation,omitempty"`
+	SourceThrough *string `json:"source_through,omitempty"`
+	Stale         bool    `json:"stale"`
+}
+
+type SessionNetworkDatasets struct {
+	ProxyHistory      SessionNetworkDataset  `json:"proxy_history"`
+	Anonymizer        SessionNetworkDataset  `json:"anonymizer"`
+	IPInfo            SessionNetworkDataset  `json:"ipinfo"`
+	ApplePrivateRelay *SessionNetworkDataset `json:"apple_private_relay,omitempty"`
+}
+
+type SessionNetworkProvenance struct {
+	EvaluatedAt           *string                `json:"evaluated_at,omitempty"`
+	LookupSource          string                 `json:"lookup_source"`
+	ProxyRealtimeCoverage string                 `json:"proxy_realtime_coverage"`
+	Datasets              SessionNetworkDatasets `json:"datasets"`
 }
 
 type SessionNetwork struct {
-	IPAddress   *string                  `json:"ip_address,omitempty"`
-	IPVersion   *string                  `json:"ip_version,omitempty"`
-	Status      string                   `json:"status"`
-	Summary     *string                  `json:"summary,omitempty"`
-	Location    *SessionNetworkLocation  `json:"location,omitempty"`
-	Routing     SessionNetworkRouting    `json:"routing"`
-	Anonymity   SessionNetworkAnonymity  `json:"anonymity"`
-	Reputation  SessionNetworkReputation `json:"reputation"`
-	Evidence    SessionNetworkEvidence   `json:"evidence"`
-	EvaluatedAt *string                  `json:"evaluated_at,omitempty"`
+	IPAddress        *string                         `json:"ip_address,omitempty"`
+	IPVersion        *string                         `json:"ip_version,omitempty"`
+	Status           string                          `json:"status"`
+	Summary          *string                         `json:"summary,omitempty"`
+	MatchedNetwork   *string                         `json:"matched_network,omitempty"`
+	Location         *SessionNetworkLocation         `json:"location,omitempty"`
+	AutonomousSystem *SessionNetworkAutonomousSystem `json:"autonomous_system,omitempty"`
+	Carrier          *SessionNetworkCarrier          `json:"carrier,omitempty"`
+	Traits           *SessionNetworkTraits           `json:"traits,omitempty"`
+	Privacy          SessionNetworkPrivacy           `json:"privacy"`
+	ProxyActivity    SessionNetworkProxyActivity     `json:"proxy_activity"`
+	Anonymizer       SessionNetworkAnonymizer        `json:"anonymizer"`
+	Provenance       SessionNetworkProvenance        `json:"provenance"`
 }
 
 type SessionDetailVisitorFingerprintLifecycle struct {
@@ -424,7 +490,7 @@ type SessionDetail struct {
 	Object                 string                           `json:"object"`
 	ID                     string                           `json:"id"`
 	CreatedAt              *string                          `json:"created_at,omitempty"`
-	ClientUserID            *string                          `json:"client_user_id,omitempty"`
+	ClientUserID           *string                          `json:"client_user_id,omitempty"`
 	Decision               SessionDecision                  `json:"decision"`
 	Highlights             []SessionHighlight               `json:"highlights"`
 	Attribution            *SessionAttribution              `json:"attribution,omitempty"`
@@ -556,16 +622,16 @@ type Attribution struct {
 }
 
 type VerifiedFoilToken struct {
-	Object             string                   `json:"object"`
-	SessionID          string                   `json:"session_id"`
-	Decision           Decision                 `json:"decision"`
-	Request            RequestContext           `json:"request"`
-	VisitorFingerprint *VisitorFingerprintLink  `json:"visitor_fingerprint,omitempty"`
-	Signals            []VerifiedFoilSignal `json:"signals"`
-	ScoreBreakdown     ScoreBreakdown           `json:"score_breakdown"`
-	Attribution        Attribution              `json:"attribution"`
-	Embed              map[string]any           `json:"embed,omitempty"`
-	Raw                map[string]any           `json:"raw,omitempty"`
+	Object             string                  `json:"object"`
+	SessionID          string                  `json:"session_id"`
+	Decision           Decision                `json:"decision"`
+	Request            RequestContext          `json:"request"`
+	VisitorFingerprint *VisitorFingerprintLink `json:"visitor_fingerprint,omitempty"`
+	Signals            []VerifiedFoilSignal    `json:"signals"`
+	ScoreBreakdown     ScoreBreakdown          `json:"score_breakdown"`
+	Attribution        Attribution             `json:"attribution"`
+	Embed              map[string]any          `json:"embed,omitempty"`
+	Raw                map[string]any          `json:"raw,omitempty"`
 }
 
 type VerificationResult struct {
