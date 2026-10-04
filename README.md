@@ -4,16 +4,14 @@
 ![Go 1.22+](https://img.shields.io/badge/go-1.22%2B-00ADD8?logo=go&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/license-MIT-0f766e.svg)
 
-The Foil Go library provides convenient access to the Foil API from Go services and applications. It includes a context-aware client for Sessions, visitor fingerprints, Organizations, Organization API key management, sealed token verification, Gate, and Gate delivery/webhook helpers.
+The Foil Go library provides convenient access to the Foil API from Go services and applications. It includes a context-aware client for Sessions, visitor fingerprints, Organizations, Organization API key management, webhook endpoints, and sealed token verification.
 
 The library also provides:
 
 - a fast configuration path using `FOIL_SECRET_KEY`
 - iterator-style helpers for cursor-based pagination
 - structured API errors and built-in sealed token verification
-- webhook endpoint management, test sends, and event delivery history
-- public, bearer-token, and secret-key auth modes for Gate flows
-- Gate delivery/webhook helpers
+- webhook endpoint management, test sends, event delivery history, and webhook signature verification
 
 ## Documentation
 
@@ -33,7 +31,7 @@ go get github.com/abxy-labs/foil-server-go
 
 ## Usage
 
-Use `FOIL_SECRET_KEY` or `WithSecretKey(...)` for core detect APIs. For public or bearer-auth Gate flows, the client can also be created without a secret key:
+Use `FOIL_SECRET_KEY` or `WithSecretKey(...)`:
 
 ```go
 package main
@@ -151,7 +149,7 @@ if err != nil {
 endpoint, err := client.Webhooks.CreateEndpoint(context.Background(), "org_0123456789abcdefghjkmnpqrs", foil.CreateWebhookEndpointParams{
   Name:       "Production alerts",
   URL:        "https://example.com/foil/webhook",
-  EventTypes: []string{"session.result.persisted", "gate.session.approved"},
+  EventTypes: []string{"session.result.persisted"},
 })
 if err != nil {
   log.Fatal(err)
@@ -168,57 +166,43 @@ if err != nil {
 log.Println(events.Items[0].WebhookDeliveries[0].Status)
 ```
 
-### Gate APIs
+#### Verifying webhook deliveries
+
+Every webhook delivery is signed with your endpoint's signing secret. Verify the `X-Foil-Timestamp` and `X-Foil-Signature` headers against the raw request body before trusting the payload:
 
 ```go
-deliveryKeyPair, err := foil.CreateDeliveryKeyPair()
+rawBody, err := io.ReadAll(request.Body)
 if err != nil {
   log.Fatal(err)
 }
 
-registry, err := client.Gate.Registry.List(context.Background())
+input := foil.VerifyWebhookSignatureInput{
+  Secret:    os.Getenv("FOIL_WEBHOOK_SECRET"),
+  Timestamp: request.Header.Get("X-Foil-Timestamp"),
+  RawBody:   string(rawBody),
+  Signature: request.Header.Get("X-Foil-Signature"),
+}
+
+if !foil.VerifyWebhookSignature(input) {
+  http.Error(writer, "invalid signature", http.StatusUnauthorized)
+  return
+}
+
+// Verify and parse in one step.
+envelope, data, err := foil.VerifyAndParseWebhookEvent(input)
 if err != nil {
   log.Fatal(err)
 }
 
-session, err := client.Gate.Sessions.Create(context.Background(), foil.CreateGateSessionParams{
-  ServiceID:   "foil",
-  AccountName: "my-project",
-  Delivery:    deliveryKeyPair.Delivery,
-})
-if err != nil {
-  log.Fatal(err)
+if envelope.Type == "session.result.persisted" {
+  log.Println(data)
 }
 
-log.Println(registry[0].ID, session.ConsentURL)
+// Parse a payload you have already verified.
+envelope, data, err = foil.ParseWebhookEvent(rawBody)
 ```
 
-### Gate delivery and webhook helpers
-
-```go
-deliveryKeyPair, err := foil.CreateDeliveryKeyPair()
-if err != nil {
-  log.Fatal(err)
-}
-
-response, err := foil.CreateGateApprovedWebhookResponse(foil.GateDeliveryHelperInput{
-  Delivery: deliveryKeyPair.Delivery,
-  Outputs: map[string]string{
-    "FOIL_PUBLISHABLE_KEY": "pk_live_...",
-    "FOIL_SECRET_KEY":      "sk_live_...",
-  },
-})
-if err != nil {
-  log.Fatal(err)
-}
-
-payload, err := foil.DecryptGateDeliveryEnvelope(deliveryKeyPair.PrivateKey, response.EncryptedDelivery)
-if err != nil {
-  log.Fatal(err)
-}
-
-log.Println(payload.Outputs["FOIL_SECRET_KEY"])
-```
+Signatures older than five minutes are rejected by default. Set `MaxAgeSeconds` to change the tolerance.
 
 ### Error handling
 
