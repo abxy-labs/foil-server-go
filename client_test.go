@@ -291,7 +291,7 @@ func TestWebhooksUseEventHistoryEndpoints(t *testing.T) {
 		ID:             "wdlv_0123456789abcdef0123456789abcdef",
 		EventID:        "wevt_0123456789abcdef0123456789abcdef",
 		EndpointID:     "we_0123456789abcdef0123456789abcdef",
-		EventType:      "session.fingerprint.calculated",
+		EventType:      "session.result.persisted",
 		Status:         "succeeded",
 		Attempts:       1,
 		ResponseStatus: ptr(200),
@@ -302,7 +302,7 @@ func TestWebhooksUseEventHistoryEndpoints(t *testing.T) {
 	event := Event{
 		Object:            "event",
 		ID:                "wevt_0123456789abcdef0123456789abcdef",
-		Type:              "session.fingerprint.calculated",
+		Type:              "session.result.persisted",
 		Subject:           EventSubject{Type: "session", ID: "sid_0123456789abcdefghjkmnpqrs"},
 		Data:              map[string]any{"source": "waitForFingerprint"},
 		WebhookDeliveries: []WebhookDelivery{delivery},
@@ -327,7 +327,7 @@ func TestWebhooksUseEventHistoryEndpoints(t *testing.T) {
 			if got := request.URL.Query().Get("endpoint_id"); got != "we_0123456789abcdef0123456789abcdef" {
 				t.Fatalf("unexpected endpoint_id %q", got)
 			}
-			if got := request.URL.Query().Get("type"); got != "session.fingerprint.calculated" {
+			if got := request.URL.Query().Get("type"); got != "session.result.persisted" {
 				t.Fatalf("unexpected type %q", got)
 			}
 			writeJSON(t, writer, http.StatusOK, listResponse)
@@ -346,7 +346,7 @@ func TestWebhooksUseEventHistoryEndpoints(t *testing.T) {
 
 	events, err := client.Webhooks.ListEvents(context.Background(), "org_56789abcdefghjkmnpqrstvwxy", EventListParams{
 		EndpointID: "we_0123456789abcdef0123456789abcdef",
-		Type:       "session.fingerprint.calculated",
+		Type:       "session.result.persisted",
 		Limit:      25,
 	})
 	if err != nil || len(events.Items) != 1 || events.Items[0].Subject.ID != "sid_0123456789abcdefghjkmnpqrs" {
@@ -357,7 +357,7 @@ func TestWebhooksUseEventHistoryEndpoints(t *testing.T) {
 	}
 
 	fetched, err := client.Webhooks.RetrieveEvent(context.Background(), "org_56789abcdefghjkmnpqrstvwxy", "wevt_0123456789abcdef0123456789abcdef")
-	if err != nil || fetched.Type != "session.fingerprint.calculated" {
+	if err != nil || fetched.Type != "session.result.persisted" {
 		t.Fatalf("unexpected event %#v err=%v", fetched, err)
 	}
 }

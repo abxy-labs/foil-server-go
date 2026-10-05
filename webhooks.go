@@ -71,6 +71,11 @@ type WebhookEventEnvelope struct {
 	Data    json.RawMessage `json:"data"`
 }
 
+var webhookEventTypes = map[string]bool{
+	"session.result.persisted": true,
+	"webhook.test":             true,
+}
+
 type VerifyWebhookSignatureInput struct {
 	Secret        string
 	Timestamp     string
@@ -182,6 +187,9 @@ func (s *WebhooksService) RetrieveEvent(ctx context.Context, organizationID stri
 // VerifyWebhookSignature checks the X-Foil-Timestamp and X-Foil-Signature headers
 // of a webhook delivery against the raw request body.
 func VerifyWebhookSignature(input VerifyWebhookSignatureInput) bool {
+	if input.Secret == "" {
+		return false
+	}
 	timestamp, err := strconv.ParseInt(input.Timestamp, 10, 64)
 	if err != nil {
 		return false
@@ -221,6 +229,9 @@ func ParseWebhookEvent(rawBody []byte) (*WebhookEventEnvelope, any, error) {
 	}
 	if envelope.Type == "" {
 		return nil, nil, errors.New("webhook event type is required")
+	}
+	if !webhookEventTypes[envelope.Type] {
+		return nil, nil, fmt.Errorf("unsupported webhook event type: %s", envelope.Type)
 	}
 	if envelope.Created == "" {
 		return nil, nil, errors.New("webhook event created timestamp is required")

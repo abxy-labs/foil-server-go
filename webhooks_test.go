@@ -1,6 +1,11 @@
 package foil
 
-import "testing"
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"testing"
+)
 
 type webhookSignatureFixture struct {
 	Secret           string `json:"secret"`
@@ -65,6 +70,15 @@ func TestVerifyWebhookSignature(t *testing.T) {
 		t.Fatal("expected malformed timestamp to fail")
 	}
 
+	empty := fixture.input()
+	empty.Secret = ""
+	emptyKeyMAC := hmac.New(sha256.New, nil)
+	emptyKeyMAC.Write([]byte(fixture.Timestamp + "." + fixture.RawBody))
+	empty.Signature = hex.EncodeToString(emptyKeyMAC.Sum(nil))
+	if VerifyWebhookSignature(empty) {
+		t.Fatal("expected empty secret to fail")
+	}
+
 	relaxed := fixture.input()
 	relaxed.NowSeconds = fixture.NowSeconds + 600
 	relaxed.MaxAgeSeconds = 900
@@ -88,15 +102,14 @@ func TestParseWebhookEvent(t *testing.T) {
 		t.Fatalf("unexpected payload %#v", payload)
 	}
 
-	envelope, payload, err = ParseWebhookEvent([]byte(`{"id":"wevt_0123456789abcdefghjkmnpqrs","object":"webhook_event","type":"unknown.event","created":"2026-04-27T00:00:00.000Z","data":{"future":true}}`))
-	if err != nil {
-		t.Fatalf("parse unknown webhook event type: %v", err)
-	}
-	if unknown, ok := payload.(map[string]any); envelope.Type != "unknown.event" || !ok || unknown["future"] != true {
-		t.Fatalf("unexpected unknown event %#v %#v", envelope, payload)
+	envelope, _, err = ParseWebhookEvent([]byte(`{"id":"wevt_1","object":"webhook_event","type":"webhook.test","created":"2026-04-27T00:00:00.000Z","data":{}}`))
+	if err != nil || envelope.Type != "webhook.test" {
+		t.Fatalf("parse webhook.test event: %#v %v", envelope, err)
 	}
 
 	for name, body := range map[string]string{
+		"unknown type": `{"id":"wevt_1","object":"webhook_event","type":"unknown.event","created":"2026-04-27T00:00:00.000Z","data":{}}`,
+		"retired type": `{"id":"wevt_1","object":"webhook_event","type":"session.fingerprint.calculated","created":"2026-04-27T00:00:00.000Z","data":{}}`,
 		"wrong object": `{"id":"wevt_1","object":"event","type":"webhook.test","created":"2026-04-27T00:00:00.000Z","data":{}}`,
 		"missing id":   `{"object":"webhook_event","type":"webhook.test","created":"2026-04-27T00:00:00.000Z","data":{}}`,
 		"missing type": `{"id":"wevt_1","object":"webhook_event","created":"2026-04-27T00:00:00.000Z","data":{}}`,
