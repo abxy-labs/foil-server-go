@@ -67,7 +67,6 @@ type Client struct {
 	Sessions      *SessionsService
 	Fingerprints  *FingerprintsService
 	Organizations *OrganizationsService
-	Gate          *GateService
 	Webhooks      *WebhooksService
 }
 
@@ -101,12 +100,6 @@ func NewClient(options ...Option) (*Client, error) {
 	client.Fingerprints = &FingerprintsService{client: client}
 	client.Organizations = &OrganizationsService{client: client}
 	client.Organizations.APIKeys = &APIKeysService{client: client}
-	client.Gate = &GateService{client: client}
-	client.Gate.Registry = &GateRegistryService{client: client}
-	client.Gate.Services = &GateManagedServicesService{client: client}
-	client.Gate.Sessions = &GateSessionsService{client: client}
-	client.Gate.LoginSessions = &GateLoginSessionsService{client: client}
-	client.Gate.AgentTokens = &GateAgentTokensService{client: client}
 	client.Webhooks = &WebhooksService{client: client}
 	return client, nil
 }
@@ -133,23 +126,6 @@ func (c *Client) buildURL(path string, query map[string]string) (string, error) 
 }
 
 func (c *Client) doJSON(ctx context.Context, method string, path string, query map[string]string, body any, out any) error {
-	return c.doJSONWithAuth(ctx, method, path, query, body, out, authConfig{Mode: authModeSecret})
-}
-
-type authMode string
-
-const (
-	authModeSecret authMode = "secret"
-	authModeNone   authMode = "none"
-	authModeBearer authMode = "bearer"
-)
-
-type authConfig struct {
-	Mode  authMode
-	Token string
-}
-
-func (c *Client) doJSONWithAuth(ctx context.Context, method string, path string, query map[string]string, body any, out any, auth authConfig) error {
 	var requestBody io.Reader
 	if body != nil {
 		payload, err := json.Marshal(body)
@@ -172,21 +148,12 @@ func (c *Client) doJSONWithAuth(ctx context.Context, method string, path string,
 	if c.userAgent != "" {
 		request.Header.Set("User-Agent", c.userAgent)
 	}
-	switch auth.Mode {
-	case authModeNone:
-	case authModeBearer:
-		if auth.Token == "" {
-			return &ConfigurationError{Message: "Missing bearer token for this Foil request."}
+	if c.secretKey == "" {
+		return &ConfigurationError{
+			Message: "Missing Foil secret key. Pass WithSecretKey or set FOIL_SECRET_KEY.",
 		}
-		request.Header.Set("Authorization", "Bearer "+auth.Token)
-	default:
-		if c.secretKey == "" {
-			return &ConfigurationError{
-				Message: "Missing Foil secret key. Pass WithSecretKey or set FOIL_SECRET_KEY.",
-			}
-		}
-		request.Header.Set("Authorization", "Bearer "+c.secretKey)
 	}
+	request.Header.Set("Authorization", "Bearer "+c.secretKey)
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
