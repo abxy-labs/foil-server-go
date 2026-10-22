@@ -1,9 +1,60 @@
 package foil
 
 import (
+	"bytes"
+	"compress/zlib"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"os"
+	"strings"
 	"testing"
 )
+
+const capTestSecret = "sk_live_cap_test"
+
+func sealLegacyToken(t *testing.T, payload map[string]any, secretKey string) string {
+	t.Helper()
+	plaintext, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	var compressed bytes.Buffer
+	writer := zlib.NewWriter(&compressed)
+	if _, err := writer.Write(plaintext); err != nil {
+		t.Fatalf("compress payload: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close compressor: %v", err)
+	}
+	block, err := aes.NewCipher(deriveTokenKey(secretKey))
+	if err != nil {
+		t.Fatalf("create cipher: %v", err)
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		t.Fatalf("create GCM: %v", err)
+	}
+	nonce := make([]byte, tokenNonceBytes)
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatalf("read nonce: %v", err)
+	}
+	token := append([]byte{legacyTokenVersion}, nonce...)
+	token = aead.Seal(token, nonce, compressed.Bytes(), nil)
+	return base64.StdEncoding.EncodeToString(token)
+}
+
+func fixturePayloadWithPadding(t *testing.T, padding int) map[string]any {
+	t.Helper()
+	fixture := loadFixture[struct {
+		Payload map[string]any `json:"payload"`
+	}](t, "sealed-token/vector.v1.json")
+	fixture.Payload["padding"] = strings.Repeat("a", padding)
+	return fixture.Payload
+}
 
 func TestVerifyFoilTokenFixture(t *testing.T) {
 	fixture := loadFixture[struct {
@@ -58,6 +109,33 @@ func TestSafeVerifyFoilTokenInvalidFixture(t *testing.T) {
 	result := SafeVerifyFoilToken(fixture.Token, "sk_live_fixture_secret")
 	if result.OK || result.Error == nil {
 		t.Fatal("expected invalid token failure result")
+	}
+}
+
+func TestVerifyFoilTokenAcceptsPayloadJustUnderSizeCap(t *testing.T) {
+	payload := fixturePayloadWithPadding(t, 0)
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	payload = fixturePayloadWithPadding(t, maxTokenPayloadBytes-len(encoded)-64)
+
+	verified, err := VerifyFoilToken(sealLegacyToken(t, payload, capTestSecret), capTestSecret)
+	if err != nil {
+		t.Fatalf("verify token under the cap: %v", err)
+	}
+	if verified.Raw["padding"] != payload["padding"] {
+		t.Fatal("padding did not round-trip")
+	}
+}
+
+func TestVerifyFoilTokenRejectsPayloadPastSizeCap(t *testing.T) {
+	payload := fixturePayloadWithPadding(t, 2*maxTokenPayloadBytes)
+
+	_, err := VerifyFoilToken(sealLegacyToken(t, payload, capTestSecret), capTestSecret)
+	var verificationErr *TokenVerificationError
+	if !errors.As(err, &verificationErr) || verificationErr.Message != "Foil token payload is too large." {
+		t.Fatalf("expected payload too large error, got %v", err)
 	}
 }
 
