@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -84,8 +85,8 @@ func TestLiveSmoke(t *testing.T) {
 		t.Fatalf("create api key: %v", err)
 	}
 	createdKeyID = createdKey.ID
-	if len(createdKey.RevealedKey) < 3 || createdKey.RevealedKey[:3] != "sk_" {
-		t.Fatalf("unexpected created secret key %q", createdKey.RevealedKey)
+	if !strings.HasPrefix(createdKey.RevealedKey, "pk_test_") {
+		t.Fatal("created api key does not start with pk_test_")
 	}
 
 	listedKey, err := findAPIKey(ctx, client, organizationID, createdKey.ID)
@@ -101,8 +102,8 @@ func TestLiveSmoke(t *testing.T) {
 		t.Fatalf("rotate api key: %v", err)
 	}
 	rotatedKeyID = rotatedKey.ID
-	if len(rotatedKey.RevealedKey) < 3 || rotatedKey.RevealedKey[:3] != "sk_" {
-		t.Fatalf("unexpected rotated secret key %q", rotatedKey.RevealedKey)
+	if !strings.HasPrefix(rotatedKey.RevealedKey, "pk_test_") {
+		t.Fatal("rotated api key does not start with pk_test_")
 	}
 
 	fixture := loadFixture[struct {
