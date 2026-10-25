@@ -26,6 +26,8 @@ const (
 	maxTokenRecipients         = 256
 	v2HeaderBytes              = 1 + 2 + tokenNonceBytes + 4
 	v2RecipientBytes           = recipientIDBytes + tokenNonceBytes + contentKeyBytes + tokenTagBytes
+	// Decompressed payloads are a few kilobytes; the cap bounds memory if a token decompresses to far more.
+	maxTokenPayloadBytes = 1024 * 1024
 )
 
 var (
@@ -161,9 +163,12 @@ func VerifyFoilToken(sealedToken string, secretKey string) (*VerifiedFoilToken, 
 	}
 	defer reader.Close()
 
-	payloadBytes, err := io.ReadAll(reader)
+	payloadBytes, err := io.ReadAll(io.LimitReader(reader, maxTokenPayloadBytes+1))
 	if err != nil {
 		return nil, &TokenVerificationError{Message: "Failed to verify Foil token.", Err: err}
+	}
+	if len(payloadBytes) > maxTokenPayloadBytes {
+		return nil, &TokenVerificationError{Message: "Foil token payload is too large."}
 	}
 
 	var payload map[string]any
