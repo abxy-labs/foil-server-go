@@ -241,6 +241,21 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	if session.NativeRuntimeIntegrity != nil || session.NativeApp != nil || session.NativeCarrier != nil || session.NativeMotionPrint != nil || session.DeviceIdentity != nil || session.InstallID != nil {
 		t.Fatalf("expected null native session fields, got %#v", session)
 	}
+	if session.ClientTelemetry.Graphics.WebGL.WebGL2ParametersHash != "webgl2_456" {
+		t.Fatalf("unexpected webgl2 parameters hash %#v", session.ClientTelemetry.Graphics.WebGL.WebGL2ParametersHash)
+	}
+	if visitor := session.VisitorFingerprint; visitor == nil ||
+		visitor.Resolution.Method == nil || *visitor.Resolution.Method != VisitorResolutionMethodContinuity ||
+		visitor.Lifecycle.ResolutionCount == nil || *visitor.Lifecycle.ResolutionCount != 14 {
+		t.Fatalf("unexpected visitor fingerprint %#v", session.VisitorFingerprint)
+	}
+	if ja4 := session.ConnectionFingerprint.JA4; ja4.MatchSource == nil || *ja4.MatchSource != JA4MatchSourceFullJA4 ||
+		ja4.Reference == nil || ja4.Reference.SampleSize == nil || *ja4.Reference.SampleSize != 1 {
+		t.Fatalf("unexpected ja4 fingerprint %#v", session.ConnectionFingerprint.JA4)
+	}
+	if len(session.SignalsFired) == 0 || session.SignalsFired[0].Strength != SessionSignalStrengthDefinitive {
+		t.Fatalf("unexpected signals fired %#v", session.SignalsFired)
+	}
 
 	fingerprints, err := client.Fingerprints.List(context.Background(), FingerprintListParams{})
 	if err != nil || len(fingerprints.Items) != 1 {
