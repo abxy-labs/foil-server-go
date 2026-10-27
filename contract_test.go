@@ -168,6 +168,30 @@ func TestCriticalSchemaConstraintsAreTightened(t *testing.T) {
 	}) {
 		t.Fatalf("SessionSummary.client_user_id has unexpected schema: %#v", sessionSummaryClientUserID)
 	}
+	sessionSummaryClientApplicationID := nestedMap(t, nestedMap(t, schemas["SessionSummary"], "SessionSummary")["properties"], "SessionSummary.properties")["client_application_id"]
+	if !reflect.DeepEqual(stripExamples(sessionSummaryClientApplicationID), map[string]any{
+		"type":        []any{"string", "null"},
+		"maxLength":   float64(256),
+		"description": "Customer-supplied identifier for the application or organization on your platform that this Foil session belongs to. Set with PATCH /v1/sessions/{sessionId}.",
+	}) {
+		t.Fatalf("SessionSummary.client_application_id has unexpected schema: %#v", sessionSummaryClientApplicationID)
+	}
+	updateSessionProperties := nestedMap(t, nestedMap(t, schemas["UpdateSessionRequest"], "UpdateSessionRequest")["properties"], "UpdateSessionRequest.properties")
+	for _, field := range []string{"client_user_id", "client_application_id"} {
+		if _, ok := updateSessionProperties[field]; !ok {
+			t.Fatalf("UpdateSessionRequest.properties should include %s", field)
+		}
+	}
+	listSessionsOperation := nestedMap(t, nestedMap(t, nestedMap(t, spec["paths"], "paths")["/v1/sessions"], "/v1/sessions")["get"], "/v1/sessions.get")
+	listSessionsQuery := map[string]bool{}
+	for _, parameter := range nestedSlice(t, listSessionsOperation["parameters"], "/v1/sessions.get.parameters") {
+		listSessionsQuery[nestedMap(t, parameter, "/v1/sessions.get.parameters[]")["name"].(string)] = true
+	}
+	for _, name := range []string{"limit", "cursor", "verdict", "search", "client_user_id", "client_application_id"} {
+		if !listSessionsQuery[name] {
+			t.Fatalf("GET /v1/sessions should accept the %s query parameter", name)
+		}
+	}
 	teamStatus := nestedMap(t, nestedMap(t, schemas["Organization"], "Organization")["properties"], "Organization.properties")["status"]
 	if nestedMap(t, teamStatus, "Organization.properties.status")["$ref"] != "#/components/schemas/OrganizationStatus" {
 		t.Fatalf("Organization.status should reference OrganizationStatus")
@@ -196,7 +220,7 @@ func TestCriticalSchemaConstraintsAreTightened(t *testing.T) {
 	for _, item := range sessionDetailRequired {
 		requiredSet[item] = true
 	}
-	for _, field := range []string{"client_user_id", "decision", "highlights", "attribution", "web_bot_auth", "network", "runtime_integrity", "visitor_fingerprint", "connection_fingerprint", "previous_decisions", "request", "browser", "device", "analysis_coverage", "signals_fired", "client_telemetry"} {
+	for _, field := range []string{"client_user_id", "client_application_id", "decision", "highlights", "attribution", "web_bot_auth", "network", "runtime_integrity", "visitor_fingerprint", "connection_fingerprint", "previous_decisions", "request", "browser", "device", "analysis_coverage", "signals_fired", "client_telemetry"} {
 		if !requiredSet[field] {
 			t.Fatalf("SessionDetail.required should include %s", field)
 		}

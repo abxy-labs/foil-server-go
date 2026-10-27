@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -132,11 +134,13 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	apiKeyList := loadFixture[resourceListEnvelope[APIKey]](t, "api/organizations/api-key-list.json")
 	apiKeyUpdate := loadFixture[resourceEnvelope[APIKey]](t, "api/organizations/api-key-update.json")
 	apiKeyRotate := loadFixture[resourceEnvelope[IssuedAPIKey]](t, "api/organizations/api-key-rotate.json")
-	var clientUserPatchBodies []map[string]any
+	var sessionPatchBodies []map[string]any
+	var sessionListQueries []url.Values
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		switch {
 		case request.URL.Path == "/v1/sessions":
+			sessionListQueries = append(sessionListQueries, request.URL.Query())
 			if request.URL.Query().Get("cursor") == "" {
 				writeJSON(t, writer, http.StatusOK, sessionList)
 				return
@@ -167,9 +171,9 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 		case request.URL.Path == "/v1/sessions/sid_0123456789abcdefghjkmnpqrs" && request.Method == http.MethodPatch:
 			var body map[string]any
 			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-				t.Fatalf("decode client user patch: %v", err)
+				t.Fatalf("decode session patch: %v", err)
 			}
-			clientUserPatchBodies = append(clientUserPatchBodies, body)
+			sessionPatchBodies = append(sessionPatchBodies, body)
 			writeJSON(t, writer, http.StatusOK, sessionDetail)
 		case request.URL.Path == "/v1/sessions/sid_0123456789abcdefghjkmnpqrs":
 			writeJSON(t, writer, http.StatusOK, sessionDetail)
@@ -209,6 +213,9 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	if err != nil || page.NextCursor == "" || !page.HasMore {
 		t.Fatalf("unexpected session list result: %#v, err=%v", page, err)
 	}
+	if len(sessionListQueries) != 1 || sessionListQueries[0].Has("client_user_id") || sessionListQueries[0].Has("client_application_id") {
+		t.Fatalf("unfiltered session list should not send client filters, got %#v", sessionListQueries)
+	}
 
 	var sessionIDs []string
 	err = client.Sessions.Iter(context.Background(), SessionListParams{}, func(item SessionSummary) error {
@@ -220,6 +227,38 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	}
 	if len(sessionIDs) != 2 {
 		t.Fatalf("expected 2 session ids, got %d", len(sessionIDs))
+	}
+
+	sessionListQueries = nil
+	filtered, err := client.Sessions.List(context.Background(), SessionListParams{
+		ClientUserID:        "user_123",
+		ClientApplicationID: "app_123",
+		Limit:               10,
+	})
+	if err != nil || len(filtered.Items) != 1 {
+		t.Fatalf("unexpected filtered session list %#v err=%v", filtered, err)
+	}
+	if len(sessionListQueries) != 1 ||
+		sessionListQueries[0].Get("client_user_id") != "user_123" ||
+		sessionListQueries[0].Get("client_application_id") != "app_123" ||
+		sessionListQueries[0].Get("limit") != "10" {
+		t.Fatalf("unexpected filtered session list query %#v", sessionListQueries)
+	}
+
+	sessionListQueries = nil
+	err = client.Sessions.Iter(context.Background(), SessionListParams{ClientUserID: "user_123", ClientApplicationID: "app_123"}, func(SessionSummary) error {
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("iterate filtered sessions: %v", err)
+	}
+	if len(sessionListQueries) != 2 {
+		t.Fatalf("expected 2 filtered session pages, got %#v", sessionListQueries)
+	}
+	for _, query := range sessionListQueries {
+		if query.Get("client_user_id") != "user_123" || query.Get("client_application_id") != "app_123" {
+			t.Fatalf("Iter should carry client filters on every page, got %#v", sessionListQueries)
+		}
 	}
 
 	session, err := client.Sessions.Get(context.Background(), "sid_0123456789abcdefghjkmnpqrs")
@@ -235,8 +274,22 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	if _, err := client.Sessions.ClearClientUser(context.Background(), "sid_0123456789abcdefghjkmnpqrs"); err != nil {
 		t.Fatalf("clear client user: %v", err)
 	}
-	if len(clientUserPatchBodies) != 2 || clientUserPatchBodies[0]["client_user_id"] != "user_123" || clientUserPatchBodies[1]["client_user_id"] != nil {
-		t.Fatalf("unexpected client user patch bodies %#v", clientUserPatchBodies)
+	if session.ClientApplicationID == nil || *session.ClientApplicationID != "app_123" {
+		t.Fatalf("unexpected client application id %#v", session.ClientApplicationID)
+	}
+	if _, err := client.Sessions.AttachClientApplication(context.Background(), "sid_0123456789abcdefghjkmnpqrs", "app_123"); err != nil {
+		t.Fatalf("attach client application: %v", err)
+	}
+	if _, err := client.Sessions.ClearClientApplication(context.Background(), "sid_0123456789abcdefghjkmnpqrs"); err != nil {
+		t.Fatalf("clear client application: %v", err)
+	}
+	if !reflect.DeepEqual(sessionPatchBodies, []map[string]any{
+		{"client_user_id": "user_123"},
+		{"client_user_id": nil},
+		{"client_application_id": "app_123"},
+		{"client_application_id": nil},
+	}) {
+		t.Fatalf("unexpected session patch bodies %#v", sessionPatchBodies)
 	}
 	if session.NativeRuntimeIntegrity != nil || session.NativeApp != nil || session.NativeCarrier != nil || session.NativeMotionPrint != nil || session.DeviceIdentity != nil || session.InstallID != nil {
 		t.Fatalf("expected null native session fields, got %#v", session)

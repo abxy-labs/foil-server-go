@@ -307,12 +307,13 @@ type SessionClientTelemetry struct {
 }
 
 type SessionSummary struct {
-	Object             string                  `json:"object"`
-	ID                 string                  `json:"id"`
-	CreatedAt          *string                 `json:"created_at,omitempty"`
+	Object              string                  `json:"object"`
+	ID                  string                  `json:"id"`
+	CreatedAt           *string                 `json:"created_at,omitempty"`
 	ClientUserID        *string                 `json:"client_user_id,omitempty"`
-	LatestDecision     Decision                `json:"latest_decision"`
-	VisitorFingerprint *VisitorFingerprintLink `json:"visitor_fingerprint,omitempty"`
+	ClientApplicationID *string                 `json:"client_application_id,omitempty"`
+	LatestDecision      Decision                `json:"latest_decision"`
+	VisitorFingerprint  *VisitorFingerprintLink `json:"visitor_fingerprint,omitempty"`
 }
 
 type SessionNetworkLocation struct {
@@ -424,7 +425,8 @@ type SessionDetail struct {
 	Object                 string                           `json:"object"`
 	ID                     string                           `json:"id"`
 	CreatedAt              *string                          `json:"created_at,omitempty"`
-	ClientUserID            *string                          `json:"client_user_id,omitempty"`
+	ClientUserID           *string                          `json:"client_user_id,omitempty"`
+	ClientApplicationID    *string                          `json:"client_application_id,omitempty"`
 	Decision               SessionDecision                  `json:"decision"`
 	Highlights             []SessionHighlight               `json:"highlights"`
 	Attribution            *SessionAttribution              `json:"attribution,omitempty"`
@@ -575,10 +577,12 @@ type VerificationResult struct {
 }
 
 type SessionListParams struct {
-	Limit   int
-	Cursor  string
-	Verdict string
-	Search  string
+	Limit               int
+	Cursor              string
+	Verdict             string
+	Search              string
+	ClientUserID        string
+	ClientApplicationID string
 }
 
 type FingerprintListParams struct {

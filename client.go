@@ -224,10 +224,12 @@ type SessionsService struct {
 func (s *SessionsService) List(ctx context.Context, params SessionListParams) (ListResult[SessionSummary], error) {
 	var envelope resourceListEnvelope[SessionSummary]
 	err := s.client.doJSON(ctx, http.MethodGet, "/v1/sessions", map[string]string{
-		"limit":   intToString(params.Limit),
-		"cursor":  params.Cursor,
-		"verdict": params.Verdict,
-		"search":  params.Search,
+		"limit":                 intToString(params.Limit),
+		"cursor":                params.Cursor,
+		"verdict":               params.Verdict,
+		"search":                params.Search,
+		"client_user_id":        params.ClientUserID,
+		"client_application_id": params.ClientApplicationID,
 	}, nil, &envelope)
 	if err != nil {
 		return ListResult[SessionSummary]{}, err
@@ -244,50 +246,48 @@ func (s *SessionsService) Get(ctx context.Context, sessionID string) (SessionDet
 	return envelope.Data, nil
 }
 
-type updateSessionRequest struct {
-	ClientUserID *string `json:"client_user_id"`
+func (s *SessionsService) updateSession(ctx context.Context, sessionID string, body map[string]any) (SessionDetail, error) {
+	var envelope resourceEnvelope[SessionDetail]
+	err := s.client.doJSON(
+		ctx,
+		http.MethodPatch,
+		"/v1/sessions/"+url.PathEscape(sessionID),
+		nil,
+		body,
+		&envelope,
+	)
+	if err != nil {
+		return SessionDetail{}, err
+	}
+	return envelope.Data, nil
 }
 
 func (s *SessionsService) AttachClientUser(ctx context.Context, sessionID string, clientUserID string) (SessionDetail, error) {
-	var envelope resourceEnvelope[SessionDetail]
-	err := s.client.doJSON(
-		ctx,
-		http.MethodPatch,
-		"/v1/sessions/"+url.PathEscape(sessionID),
-		nil,
-		updateSessionRequest{ClientUserID: &clientUserID},
-		&envelope,
-	)
-	if err != nil {
-		return SessionDetail{}, err
-	}
-	return envelope.Data, nil
+	return s.updateSession(ctx, sessionID, map[string]any{"client_user_id": clientUserID})
 }
 
 func (s *SessionsService) ClearClientUser(ctx context.Context, sessionID string) (SessionDetail, error) {
-	var envelope resourceEnvelope[SessionDetail]
-	err := s.client.doJSON(
-		ctx,
-		http.MethodPatch,
-		"/v1/sessions/"+url.PathEscape(sessionID),
-		nil,
-		updateSessionRequest{ClientUserID: nil},
-		&envelope,
-	)
-	if err != nil {
-		return SessionDetail{}, err
-	}
-	return envelope.Data, nil
+	return s.updateSession(ctx, sessionID, map[string]any{"client_user_id": nil})
+}
+
+func (s *SessionsService) AttachClientApplication(ctx context.Context, sessionID string, clientApplicationID string) (SessionDetail, error) {
+	return s.updateSession(ctx, sessionID, map[string]any{"client_application_id": clientApplicationID})
+}
+
+func (s *SessionsService) ClearClientApplication(ctx context.Context, sessionID string) (SessionDetail, error) {
+	return s.updateSession(ctx, sessionID, map[string]any{"client_application_id": nil})
 }
 
 func (s *SessionsService) Iter(ctx context.Context, params SessionListParams, yield func(SessionSummary) error) error {
 	cursor := params.Cursor
 	for {
 		page, err := s.List(ctx, SessionListParams{
-			Limit:   params.Limit,
-			Cursor:  cursor,
-			Verdict: params.Verdict,
-			Search:  params.Search,
+			Limit:               params.Limit,
+			Cursor:              cursor,
+			Verdict:             params.Verdict,
+			Search:              params.Search,
+			ClientUserID:        params.ClientUserID,
+			ClientApplicationID: params.ClientApplicationID,
 		})
 		if err != nil {
 			return err
