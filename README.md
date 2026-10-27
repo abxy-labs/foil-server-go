@@ -50,8 +50,10 @@ func main() {
   }
 
   page, err := client.Sessions.List(context.Background(), foil.SessionListParams{
-    Verdict: "bot",
-    Limit:   25,
+    Verdict:             "bot",
+    Limit:               25,
+    ClientUserID:        "user_123", // optional exact-match filters
+    ClientApplicationID: "app_123",
   })
   if err != nil {
     log.Fatal(err)
@@ -66,6 +68,12 @@ func main() {
     log.Fatal(err)
   }
   if _, err := client.Sessions.ClearClientUser(context.Background(), session.ID); err != nil {
+    log.Fatal(err)
+  }
+  if _, err := client.Sessions.AttachClientApplication(context.Background(), session.ID, "app_123"); err != nil {
+    log.Fatal(err)
+  }
+  if _, err := client.Sessions.ClearClientApplication(context.Background(), session.ID); err != nil {
     log.Fatal(err)
   }
 
