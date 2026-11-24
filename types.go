@@ -343,6 +343,7 @@ type SessionSummary struct {
 	CreatedAt           *string                 `json:"created_at,omitempty"`
 	ClientUserID        *string                 `json:"client_user_id,omitempty"`
 	ClientApplicationID *string                 `json:"client_application_id,omitempty"`
+	ClientSessionID     *string                 `json:"client_session_id,omitempty"`
 	LatestDecision      Decision                `json:"latest_decision"`
 	VisitorFingerprint  *VisitorFingerprintLink `json:"visitor_fingerprint,omitempty"`
 }
@@ -601,6 +602,7 @@ type SessionDetail struct {
 	CreatedAt              *string                          `json:"created_at,omitempty"`
 	ClientUserID           *string                          `json:"client_user_id,omitempty"`
 	ClientApplicationID    *string                          `json:"client_application_id,omitempty"`
+	ClientSessionID        *string                          `json:"client_session_id,omitempty"`
 	Decision               SessionDecision                  `json:"decision"`
 	Highlights             []SessionHighlight               `json:"highlights"`
 	Attribution            *SessionAttribution              `json:"attribution,omitempty"`
@@ -764,6 +766,7 @@ type SessionListParams struct {
 	Search              string
 	ClientUserID        string
 	ClientApplicationID string
+	ClientSessionID     string
 }
 
 type FingerprintListParams struct {

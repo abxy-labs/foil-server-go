@@ -213,7 +213,7 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	if err != nil || page.NextCursor == "" || !page.HasMore {
 		t.Fatalf("unexpected session list result: %#v, err=%v", page, err)
 	}
-	if len(sessionListQueries) != 1 || sessionListQueries[0].Has("client_user_id") || sessionListQueries[0].Has("client_application_id") {
+	if len(sessionListQueries) != 1 || sessionListQueries[0].Has("client_user_id") || sessionListQueries[0].Has("client_application_id") || sessionListQueries[0].Has("client_session_id") {
 		t.Fatalf("unfiltered session list should not send client filters, got %#v", sessionListQueries)
 	}
 
@@ -233,6 +233,7 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	filtered, err := client.Sessions.List(context.Background(), SessionListParams{
 		ClientUserID:        "user_123",
 		ClientApplicationID: "app_123",
+		ClientSessionID:     "sess_123",
 		Limit:               10,
 	})
 	if err != nil || len(filtered.Items) != 1 {
@@ -241,12 +242,13 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	if len(sessionListQueries) != 1 ||
 		sessionListQueries[0].Get("client_user_id") != "user_123" ||
 		sessionListQueries[0].Get("client_application_id") != "app_123" ||
+		sessionListQueries[0].Get("client_session_id") != "sess_123" ||
 		sessionListQueries[0].Get("limit") != "10" {
 		t.Fatalf("unexpected filtered session list query %#v", sessionListQueries)
 	}
 
 	sessionListQueries = nil
-	err = client.Sessions.Iter(context.Background(), SessionListParams{ClientUserID: "user_123", ClientApplicationID: "app_123"}, func(SessionSummary) error {
+	err = client.Sessions.Iter(context.Background(), SessionListParams{ClientUserID: "user_123", ClientApplicationID: "app_123", ClientSessionID: "sess_123"}, func(SessionSummary) error {
 		return nil
 	})
 	if err != nil {
@@ -256,7 +258,7 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 		t.Fatalf("expected 2 filtered session pages, got %#v", sessionListQueries)
 	}
 	for _, query := range sessionListQueries {
-		if query.Get("client_user_id") != "user_123" || query.Get("client_application_id") != "app_123" {
+		if query.Get("client_user_id") != "user_123" || query.Get("client_application_id") != "app_123" || query.Get("client_session_id") != "sess_123" {
 			t.Fatalf("Iter should carry client filters on every page, got %#v", sessionListQueries)
 		}
 	}
@@ -283,11 +285,22 @@ func TestSessionsFingerprintsOrganizationsAndAPIKeys(t *testing.T) {
 	if _, err := client.Sessions.ClearClientApplication(context.Background(), "sid_0123456789abcdefghjkmnpqrs"); err != nil {
 		t.Fatalf("clear client application: %v", err)
 	}
+	if session.ClientSessionID == nil || *session.ClientSessionID != "sess_123" {
+		t.Fatalf("unexpected client session id %#v", session.ClientSessionID)
+	}
+	if _, err := client.Sessions.AttachClientSession(context.Background(), "sid_0123456789abcdefghjkmnpqrs", "sess_123"); err != nil {
+		t.Fatalf("attach client session: %v", err)
+	}
+	if _, err := client.Sessions.ClearClientSession(context.Background(), "sid_0123456789abcdefghjkmnpqrs"); err != nil {
+		t.Fatalf("clear client session: %v", err)
+	}
 	if !reflect.DeepEqual(sessionPatchBodies, []map[string]any{
 		{"client_user_id": "user_123"},
 		{"client_user_id": nil},
 		{"client_application_id": "app_123"},
 		{"client_application_id": nil},
+		{"client_session_id": "sess_123"},
+		{"client_session_id": nil},
 	}) {
 		t.Fatalf("unexpected session patch bodies %#v", sessionPatchBodies)
 	}

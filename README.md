@@ -54,6 +54,7 @@ func main() {
     Limit:               25,
     ClientUserID:        "user_123", // optional exact-match filters
     ClientApplicationID: "app_123",
+    ClientSessionID:     "sess_123",
   })
   if err != nil {
     log.Fatal(err)
@@ -74,6 +75,12 @@ func main() {
     log.Fatal(err)
   }
   if _, err := client.Sessions.ClearClientApplication(context.Background(), session.ID); err != nil {
+    log.Fatal(err)
+  }
+  if _, err := client.Sessions.AttachClientSession(context.Background(), session.ID, "sess_123"); err != nil {
+    log.Fatal(err)
+  }
+  if _, err := client.Sessions.ClearClientSession(context.Background(), session.ID); err != nil {
     log.Fatal(err)
   }
 
