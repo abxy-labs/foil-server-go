@@ -230,6 +230,7 @@ func (s *SessionsService) List(ctx context.Context, params SessionListParams) (L
 		"search":                params.Search,
 		"client_user_id":        params.ClientUserID,
 		"client_application_id": params.ClientApplicationID,
+		"client_session_id":     params.ClientSessionID,
 	}, nil, &envelope)
 	if err != nil {
 		return ListResult[SessionSummary]{}, err
@@ -278,6 +279,14 @@ func (s *SessionsService) ClearClientApplication(ctx context.Context, sessionID 
 	return s.updateSession(ctx, sessionID, map[string]any{"client_application_id": nil})
 }
 
+func (s *SessionsService) AttachClientSession(ctx context.Context, sessionID string, clientSessionID string) (SessionDetail, error) {
+	return s.updateSession(ctx, sessionID, map[string]any{"client_session_id": clientSessionID})
+}
+
+func (s *SessionsService) ClearClientSession(ctx context.Context, sessionID string) (SessionDetail, error) {
+	return s.updateSession(ctx, sessionID, map[string]any{"client_session_id": nil})
+}
+
 func (s *SessionsService) Iter(ctx context.Context, params SessionListParams, yield func(SessionSummary) error) error {
 	cursor := params.Cursor
 	for {
@@ -288,6 +297,7 @@ func (s *SessionsService) Iter(ctx context.Context, params SessionListParams, yi
 			Search:              params.Search,
 			ClientUserID:        params.ClientUserID,
 			ClientApplicationID: params.ClientApplicationID,
+			ClientSessionID:     params.ClientSessionID,
 		})
 		if err != nil {
 			return err

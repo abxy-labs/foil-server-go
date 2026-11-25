@@ -176,8 +176,16 @@ func TestCriticalSchemaConstraintsAreTightened(t *testing.T) {
 	}) {
 		t.Fatalf("SessionSummary.client_application_id has unexpected schema: %#v", sessionSummaryClientApplicationID)
 	}
+	sessionSummaryClientSessionID := nestedMap(t, nestedMap(t, schemas["SessionSummary"], "SessionSummary")["properties"], "SessionSummary.properties")["client_session_id"]
+	if !reflect.DeepEqual(stripExamples(sessionSummaryClientSessionID), map[string]any{
+		"type":        []any{"string", "null"},
+		"maxLength":   float64(256),
+		"description": "Customer-supplied identifier for the session, checkout or visit in your own system that this Foil session belongs to. Set with PATCH /v1/sessions/{sessionId}.",
+	}) {
+		t.Fatalf("SessionSummary.client_session_id has unexpected schema: %#v", sessionSummaryClientSessionID)
+	}
 	updateSessionProperties := nestedMap(t, nestedMap(t, schemas["UpdateSessionRequest"], "UpdateSessionRequest")["properties"], "UpdateSessionRequest.properties")
-	for _, field := range []string{"client_user_id", "client_application_id"} {
+	for _, field := range []string{"client_user_id", "client_application_id", "client_session_id"} {
 		if _, ok := updateSessionProperties[field]; !ok {
 			t.Fatalf("UpdateSessionRequest.properties should include %s", field)
 		}
@@ -187,7 +195,7 @@ func TestCriticalSchemaConstraintsAreTightened(t *testing.T) {
 	for _, parameter := range nestedSlice(t, listSessionsOperation["parameters"], "/v1/sessions.get.parameters") {
 		listSessionsQuery[nestedMap(t, parameter, "/v1/sessions.get.parameters[]")["name"].(string)] = true
 	}
-	for _, name := range []string{"limit", "cursor", "verdict", "search", "client_user_id", "client_application_id"} {
+	for _, name := range []string{"limit", "cursor", "verdict", "search", "client_user_id", "client_application_id", "client_session_id"} {
 		if !listSessionsQuery[name] {
 			t.Fatalf("GET /v1/sessions should accept the %s query parameter", name)
 		}
@@ -220,7 +228,7 @@ func TestCriticalSchemaConstraintsAreTightened(t *testing.T) {
 	for _, item := range sessionDetailRequired {
 		requiredSet[item] = true
 	}
-	for _, field := range []string{"client_user_id", "client_application_id", "decision", "highlights", "attribution", "web_bot_auth", "network", "runtime_integrity", "visitor_fingerprint", "connection_fingerprint", "previous_decisions", "request", "browser", "device", "analysis_coverage", "signals_fired", "client_telemetry"} {
+	for _, field := range []string{"client_user_id", "client_application_id", "client_session_id", "decision", "highlights", "attribution", "web_bot_auth", "network", "runtime_integrity", "visitor_fingerprint", "connection_fingerprint", "previous_decisions", "request", "browser", "device", "analysis_coverage", "signals_fired", "client_telemetry"} {
 		if !requiredSet[field] {
 			t.Fatalf("SessionDetail.required should include %s", field)
 		}

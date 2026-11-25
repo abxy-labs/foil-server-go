@@ -101,6 +101,48 @@ func TestVerifyFoilTokenMultiRecipientFixture(t *testing.T) {
 	}
 }
 
+func TestVerifyFoilTokenBotAttributionFixture(t *testing.T) {
+	fixture := loadFixture[struct {
+		Token      string   `json:"token"`
+		SecretKeys []string `json:"secretKeys"`
+	}](t, "sealed-token/vector.v2.bot.json")
+
+	verified, err := VerifyFoilToken(fixture.Token, fixture.SecretKeys[0])
+	if err != nil {
+		t.Fatalf("verify bot token: %v", err)
+	}
+	if verified.Decision.Verdict != "bot" {
+		t.Fatalf("unexpected verdict %#v", verified.Decision.Verdict)
+	}
+	// attribution.bot has the session detail shape, so it parses into
+	// SessionAttribution, whose confidences are integers from 0 to 100.
+	encoded, err := json.Marshal(verified.Attribution.Bot)
+	if err != nil {
+		t.Fatalf("encode attribution.bot: %v", err)
+	}
+	var bot SessionAttribution
+	if err := json.Unmarshal(encoded, &bot); err != nil {
+		t.Fatalf("attribution.bot does not parse as SessionAttribution: %v", err)
+	}
+	if len(bot.Labels) == 0 || len(bot.Behaviors) == 0 {
+		t.Fatalf("expected labels and behaviors, got %#v", bot)
+	}
+	want := SessionAttributionLabel{Kind: "actor", Value: "automation", Label: "Automation", Confidence: 100}
+	if bot.Labels[0] != want {
+		t.Fatalf("unexpected actor label %#v", bot.Labels[0])
+	}
+	for _, label := range bot.Labels {
+		if label.Confidence < 0 || label.Confidence > 100 {
+			t.Fatalf("label confidence out of range %#v", label)
+		}
+	}
+	for _, behavior := range bot.Behaviors {
+		if behavior.Confidence < 0 || behavior.Confidence > 100 {
+			t.Fatalf("behavior confidence out of range %#v", behavior)
+		}
+	}
+}
+
 func TestSafeVerifyFoilTokenInvalidFixture(t *testing.T) {
 	fixture := loadFixture[struct {
 		Token string `json:"token"`
